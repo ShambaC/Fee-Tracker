@@ -1,0 +1,5 @@
+{
+  "name": "Yoga Fee Tracker",
+  "description": "An offline-first, mobile-optimized application for tracking yoga student fees across multiple locations.",
+  "requestFramePermissions": []
+}

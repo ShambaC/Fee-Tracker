@@ -13,7 +13,11 @@ import {
   Moon,
   Sun,
   Edit2,
-  Trash2
+  Trash2,
+  AlertTriangle,
+  X,
+  CheckCircle,
+  Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -25,6 +29,142 @@ const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
 ];
+
+// --- Custom Modal Components ---
+
+// Confirm Modal for delete/destructive actions
+interface ConfirmModalProps {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  variant?: 'danger' | 'warning';
+}
+
+const ConfirmModal: React.FC<ConfirmModalProps> = ({
+  isOpen,
+  title,
+  message,
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+  onConfirm,
+  onCancel,
+  variant = 'danger'
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        onClick={onCancel}
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          className="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="p-6">
+            <div className="flex items-center gap-4 mb-4">
+              <div className={`p-3 rounded-full ${
+                variant === 'danger' 
+                  ? 'bg-red-100 dark:bg-red-900/30' 
+                  : 'bg-orange-100 dark:bg-orange-900/30'
+              }`}>
+                <AlertTriangle 
+                  size={24} 
+                  className={variant === 'danger' ? 'text-red-600 dark:text-red-400' : 'text-orange-600 dark:text-orange-400'}
+                />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white">{title}</h3>
+            </div>
+            <p className="text-slate-600 dark:text-stone-300 mb-6 leading-relaxed">{message}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={onCancel}
+                className="flex-1 py-3 px-4 rounded-xl font-bold bg-slate-100 dark:bg-stone-800 text-slate-700 dark:text-stone-300 hover:bg-slate-200 dark:hover:bg-stone-700 transition-colors active:scale-[0.98]"
+              >
+                {cancelText}
+              </button>
+              <button
+                onClick={onConfirm}
+                className={`flex-1 py-3 px-4 rounded-xl font-bold text-white transition-colors active:scale-[0.98] ${
+                  variant === 'danger'
+                    ? 'bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600'
+                    : 'bg-orange-600 hover:bg-orange-700 dark:bg-orange-700 dark:hover:bg-orange-600'
+                }`}
+              >
+                {confirmText}
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+// Toast notification component
+interface ToastProps {
+  isOpen: boolean;
+  message: string;
+  type?: 'success' | 'error' | 'info';
+  onClose: () => void;
+}
+
+const Toast: React.FC<ToastProps> = ({ isOpen, message, type = 'success', onClose }) => {
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(onClose, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const iconMap = {
+    success: <CheckCircle size={20} className="text-green-500" />,
+    error: <XCircle size={20} className="text-red-500" />,
+    info: <Info size={20} className="text-blue-500" />
+  };
+
+  const bgMap = {
+    success: 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800',
+    error: 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800',
+    info: 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800'
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, y: -50, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -50, scale: 0.9 }}
+        className="fixed top-4 left-4 right-4 z-[100] flex justify-center"
+      >
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg ${bgMap[type]}`}>
+          {iconMap[type]}
+          <span className="text-sm font-medium text-slate-800 dark:text-white">{message}</span>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition-colors"
+          >
+            <X size={16} className="text-slate-500 dark:text-stone-400" />
+          </button>
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
 
 // Simple icon helper for the big button
 const CheckCircleIcon = () => (
@@ -489,20 +629,21 @@ const SettingsView: React.FC<{
   onBack: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
-}> = ({ data, onImport, onBack, theme, onToggleTheme }) => {
+  onShowToast: (message: string, type?: 'success' | 'error' | 'info') => void;
+}> = ({ data, onImport, onBack, theme, onToggleTheme, onShowToast }) => {
   const [jsonInput, setJsonInput] = useState('');
   const [error, setError] = useState('');
 
   const handleCopy = () => {
     navigator.clipboard.writeText(exportData(data));
-    alert('Data copied to clipboard!');
+    onShowToast('Data copied to clipboard!', 'success');
   };
 
   const handleImport = () => {
     const parsed = importData(jsonInput);
     if (parsed) {
       onImport(parsed);
-      alert('Data imported successfully!');
+      onShowToast('Data imported successfully!', 'success');
       onBack();
     } else {
       setError('Invalid JSON format.');
@@ -514,10 +655,10 @@ const SettingsView: React.FC<{
       initial={{ y: '100%' }} 
       animate={{ y: 0 }} 
       exit={{ y: '100%' }}
-      className="min-h-screen bg-blue-50 dark:bg-stone-950 absolute top-0 w-full z-30"
+      className="min-h-screen bg-blue-50 dark:bg-stone-950 absolute top-0 w-full z-30 flex flex-col"
     >
       <Header title="Settings" onBack={onBack} />
-      <div className="p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-safe-bottom">
         
         <Card className="flex items-center justify-between">
            <div className="flex items-center gap-3">
@@ -561,7 +702,7 @@ const SettingsView: React.FC<{
           </button>
         </Card>
 
-        <div className="text-center text-xs text-slate-400 dark:text-stone-600 pt-8">
+        <div className="text-center text-xs text-slate-400 dark:text-stone-600 pt-8 pb-8">
           <p>Yoga Fee Tracker v1.3</p>
           <p>Local Storage Mode</p>
         </div>
@@ -583,6 +724,22 @@ const App: React.FC = () => {
     current: 'dashboard',
     history: []
   });
+
+  // Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    onConfirm: () => void;
+    variant?: 'danger' | 'warning';
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+
+  const [toast, setToast] = useState<{
+    isOpen: boolean;
+    message: string;
+    type: 'success' | 'error' | 'info';
+  }>({ isOpen: false, message: '', type: 'success' });
 
   // Date State
   const today = new Date();
@@ -703,32 +860,55 @@ const App: React.FC = () => {
 
   const handleDeleteLocation = () => {
     if (!viewState.selectedLocationId) return;
-    if (window.confirm("Are you sure you want to delete this location? All associated students and their payment history will be permanently deleted.")) {
-      const locId = viewState.selectedLocationId;
-      setData(prev => {
-         const studentsToDelete = prev.students.filter(s => s.locationId === locId);
-         const studentIds = studentsToDelete.map(s => s.id);
-         return {
-           ...prev,
-           locations: prev.locations.filter(l => l.id !== locId),
-           students: prev.students.filter(s => s.locationId !== locId),
-           payments: prev.payments.filter(p => !studentIds.includes(p.studentId))
-         };
-      });
-      goBack();
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Location',
+      message: 'Are you sure you want to delete this location? All associated students and their payment history will be permanently deleted.',
+      confirmText: 'Delete',
+      variant: 'danger',
+      onConfirm: () => {
+        const locId = viewState.selectedLocationId;
+        setData(prev => {
+          const studentsToDelete = prev.students.filter(s => s.locationId === locId);
+          const studentIds = studentsToDelete.map(s => s.id);
+          return {
+            ...prev,
+            locations: prev.locations.filter(l => l.id !== locId),
+            students: prev.students.filter(s => s.locationId !== locId),
+            payments: prev.payments.filter(p => !studentIds.includes(p.studentId))
+          };
+        });
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        goBack();
+      }
+    });
   };
 
   const handleDeleteStudent = () => {
     if (!viewState.selectedStudentId) return;
-    if (window.confirm("Are you sure you want to delete this student and their payment history?")) {
-      setData(prev => ({
-        ...prev,
-        students: prev.students.filter(s => s.id !== viewState.selectedStudentId),
-        payments: prev.payments.filter(p => p.studentId !== viewState.selectedStudentId)
-      }));
-      goBack();
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remove Student',
+      message: 'Are you sure you want to remove this student? They will be marked as inactive and won\'t appear in future months, but their payment history will be preserved.',
+      confirmText: 'Remove',
+      variant: 'warning',
+      onConfirm: () => {
+        setData(prev => ({
+          ...prev,
+          students: prev.students.map(s => 
+            s.id === viewState.selectedStudentId 
+              ? { ...s, isActive: false }
+              : s
+          )
+        }));
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        goBack();
+      }
+    });
+  };
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ isOpen: true, message, type });
   };
 
   const handleImport = (newData: AppData) => {
@@ -830,9 +1010,28 @@ const App: React.FC = () => {
             onBack={goBack}
             theme={theme}
             onToggleTheme={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
+            onShowToast={showToast}
           />
         )}
       </AnimatePresence>
+
+      {/* Global Modals */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        variant={confirmModal.variant}
+      />
+
+      <Toast
+        isOpen={toast.isOpen}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

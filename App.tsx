@@ -19,12 +19,25 @@ import {
   CheckCircle,
   Info,
   FileDown,
-  FileUp
+  FileUp,
+  Shield,
+  ShieldCheck,
+  HardDrive
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { AppData, Location, Student, Payment, ViewState } from './types';
-import { loadData, saveData, exportToFile, importFromFile, loadTheme, saveTheme } from './services/storage';
+import { 
+  loadData, 
+  saveData, 
+  exportToFile, 
+  importFromFile, 
+  loadTheme, 
+  saveTheme,
+  checkPersistentStorage,
+  requestPersistentStorage,
+  hasPersistenceBeenRequested
+} from './services/storage';
 import { Header, Card, Fab } from './components/Layout';
 
 const MONTHS = [
@@ -632,7 +645,9 @@ const SettingsView: React.FC<{
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   onShowToast: (message: string, type?: 'success' | 'error' | 'info') => void;
-}> = ({ data, onImport, onBack, theme, onToggleTheme, onShowToast }) => {
+  isPersistent: boolean;
+  onRequestPersistence: () => void;
+}> = ({ data, onImport, onBack, theme, onToggleTheme, onShowToast, isPersistent, onRequestPersistence }) => {
   const [error, setError] = useState('');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -684,6 +699,42 @@ const SettingsView: React.FC<{
              </button>
           </Card>
 
+          {/* Storage Status Card */}
+          <Card className="space-y-4">
+            <div className="flex items-center gap-3 text-slate-800 dark:text-white mb-2">
+              <HardDrive className="text-slate-600 dark:text-stone-400" />
+              <h3 className="font-bold">Data Storage</h3>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {isPersistent ? (
+                  <ShieldCheck size={20} className="text-green-500" />
+                ) : (
+                  <Shield size={20} className="text-orange-500" />
+                )}
+                <span className="text-sm text-slate-700 dark:text-stone-300">
+                  {isPersistent ? 'Persistent storage enabled' : 'Storage may be cleared by browser'}
+                </span>
+              </div>
+            </div>
+            
+            {!isPersistent && (
+              <>
+                <p className="text-xs text-slate-500 dark:text-stone-400">
+                  Enable persistent storage to prevent your data from being automatically cleared by the browser when storage is low.
+                </p>
+                <button 
+                  onClick={onRequestPersistence}
+                  className="w-full bg-green-600 dark:bg-green-700 text-white py-3 rounded-lg font-bold hover:bg-green-700 dark:hover:bg-green-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                >
+                  <ShieldCheck size={18} />
+                  Enable Persistent Storage
+                </button>
+              </>
+            )}
+          </Card>
+
           <Card className="space-y-4">
             <div className="flex items-center gap-3 text-slate-800 dark:text-white mb-2">
               <FileDown className="text-slate-600 dark:text-stone-400" />
@@ -726,7 +777,14 @@ const SettingsView: React.FC<{
 
           <div className="text-center text-xs text-slate-400 dark:text-stone-600 pt-8">
             <p>Yoga Fee Tracker v1.4</p>
-            <p>IndexedDB Storage</p>
+            <p className="flex items-center justify-center gap-1">
+              {isPersistent ? (
+                <><ShieldCheck size={12} className="text-green-500" /> Persistent Storage</>
+              ) : (
+                <><HardDrive size={12} /> IndexedDB Storage</>
+              )}
+            </p>
+            <p>Made with ❤️ by ShambaC</p>
           </div>
         </div>
       </div>
@@ -764,6 +822,9 @@ const App: React.FC = () => {
     type: 'success' | 'error' | 'info';
   }>({ isOpen: false, message: '', type: 'success' });
 
+  // Persistent Storage State
+  const [isPersistent, setIsPersistent] = useState(false);
+
   // Date State
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
@@ -776,6 +837,20 @@ const App: React.FC = () => {
       const loadedTheme = loadTheme();
       setData(loadedData);
       setTheme(loadedTheme);
+      
+      // Check persistent storage status
+      const persisted = await checkPersistentStorage();
+      setIsPersistent(persisted);
+      
+      // Auto-request persistence if not already requested and not persisted
+      if (!persisted && !hasPersistenceBeenRequested()) {
+        // Small delay to let the app render first
+        setTimeout(async () => {
+          const granted = await requestPersistentStorage();
+          setIsPersistent(granted);
+        }, 1000);
+      }
+      
       setLoaded(true);
     };
     initApp();
@@ -1037,6 +1112,16 @@ const App: React.FC = () => {
             theme={theme}
             onToggleTheme={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
             onShowToast={showToast}
+            isPersistent={isPersistent}
+            onRequestPersistence={async () => {
+              const granted = await requestPersistentStorage();
+              setIsPersistent(granted);
+              if (granted) {
+                showToast('Persistent storage enabled!', 'success');
+              } else {
+                showToast('Browser denied persistent storage request', 'error');
+              }
+            }}
           />
         )}
       </AnimatePresence>

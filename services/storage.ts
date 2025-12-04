@@ -5,6 +5,7 @@ const DB_VERSION = 1;
 const STORE_NAME = 'app_data';
 const DATA_KEY = 'main_data';
 const THEME_KEY = 'theme';
+const PERSISTENCE_KEY = 'yoga_tracker_persistence_requested';
 
 const SEED_DATA: AppData = {
   locations: [
@@ -25,6 +26,49 @@ const SEED_DATA: AppData = {
     { id: 'pay2', studentId: 'stu2', month: 11, year: 2025, amount: 150, datePaid: new Date().toISOString() },
     { id: 'pay3', studentId: 'stu4', month: 10, year: 2025, amount: 150, datePaid: new Date().toISOString() },
   ]
+};
+
+// --- Persistent Storage API ---
+
+// Check if persistent storage is already granted
+export const checkPersistentStorage = async (): Promise<boolean> => {
+  if (navigator.storage && navigator.storage.persisted) {
+    return await navigator.storage.persisted();
+  }
+  return false;
+};
+
+// Request persistent storage permission from the browser
+export const requestPersistentStorage = async (): Promise<boolean> => {
+  if (navigator.storage && navigator.storage.persist) {
+    const isPersisted = await navigator.storage.persist();
+    if (isPersisted) {
+      console.log('Storage is now persistent!');
+      localStorage.setItem(PERSISTENCE_KEY, 'granted');
+    } else {
+      console.log('Persistent storage request was denied.');
+    }
+    return isPersisted;
+  }
+  console.log('Persistent Storage API not supported');
+  return false;
+};
+
+// Check if we've already asked for persistence (to avoid repeated prompts)
+export const hasPersistenceBeenRequested = (): boolean => {
+  return localStorage.getItem(PERSISTENCE_KEY) !== null;
+};
+
+// Get storage estimate (useful for debugging/display)
+export const getStorageEstimate = async (): Promise<{ usage: number; quota: number } | null> => {
+  if (navigator.storage && navigator.storage.estimate) {
+    const estimate = await navigator.storage.estimate();
+    return {
+      usage: estimate.usage || 0,
+      quota: estimate.quota || 0
+    };
+  }
+  return null;
 };
 
 // Initialize IndexedDB

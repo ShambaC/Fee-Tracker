@@ -17,12 +17,14 @@ import {
   AlertTriangle,
   X,
   CheckCircle,
-  Info
+  Info,
+  FileDown,
+  FileUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { AppData, Location, Student, Payment, ViewState } from './types';
-import { loadData, saveData, exportData, importData, loadTheme, saveTheme } from './services/storage';
+import { loadData, saveData, exportToFile, importFromFile, loadTheme, saveTheme } from './services/storage';
 import { Header, Card, Fab } from './components/Layout';
 
 const MONTHS = [
@@ -631,22 +633,30 @@ const SettingsView: React.FC<{
   onToggleTheme: () => void;
   onShowToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }> = ({ data, onImport, onBack, theme, onToggleTheme, onShowToast }) => {
-  const [jsonInput, setJsonInput] = useState('');
   const [error, setError] = useState('');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(exportData(data));
-    onShowToast('Data copied to clipboard!', 'success');
+  const handleExportFile = () => {
+    exportToFile(data);
+    onShowToast('Backup file downloaded!', 'success');
   };
 
-  const handleImport = () => {
-    const parsed = importData(jsonInput);
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const parsed = await importFromFile(file);
     if (parsed) {
       onImport(parsed);
       onShowToast('Data imported successfully!', 'success');
       onBack();
     } else {
-      setError('Invalid JSON format.');
+      setError('Invalid backup file format.');
+    }
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -655,56 +665,69 @@ const SettingsView: React.FC<{
       initial={{ y: '100%' }} 
       animate={{ y: 0 }} 
       exit={{ y: '100%' }}
-      className="min-h-screen bg-blue-50 dark:bg-stone-950 absolute top-0 w-full z-30 flex flex-col"
+      className="fixed inset-0 bg-blue-50 dark:bg-stone-950 z-30 flex flex-col"
     >
       <Header title="Settings" onBack={onBack} />
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-safe-bottom">
-        
-        <Card className="flex items-center justify-between">
-           <div className="flex items-center gap-3">
-             {theme === 'dark' ? <Moon className="text-orange-400" /> : <Sun className="text-orange-400" />}
-             <span className="font-bold text-slate-800 dark:text-white">Dark Mode</span>
-           </div>
-           <button 
-             onClick={onToggleTheme}
-             className={`w-14 h-8 rounded-full p-1 transition-colors ${theme === 'dark' ? 'bg-orange-600' : 'bg-blue-200'}`}
-           >
-             <div className={`w-6 h-6 bg-white rounded-full shadow-md transform transition-transform ${theme === 'dark' ? 'translate-x-6' : ''}`} />
-           </button>
-        </Card>
+      <div className="flex-1 overflow-y-auto overscroll-contain">
+        <div className="p-4 space-y-6 pb-12">
+          
+          <Card className="flex items-center justify-between">
+             <div className="flex items-center gap-3">
+               {theme === 'dark' ? <Moon className="text-orange-400" /> : <Sun className="text-orange-400" />}
+               <span className="font-bold text-slate-800 dark:text-white">Dark Mode</span>
+             </div>
+             <button 
+               onClick={onToggleTheme}
+               className={`w-14 h-8 rounded-full p-1 transition-colors ${theme === 'dark' ? 'bg-orange-600' : 'bg-blue-200'}`}
+             >
+               <div className={`w-6 h-6 bg-white rounded-full shadow-md transform transition-transform ${theme === 'dark' ? 'translate-x-6' : ''}`} />
+             </button>
+          </Card>
 
-        <Card className="space-y-4">
-          <div className="flex items-center gap-3 text-slate-800 dark:text-white mb-2">
-            <Download className="text-slate-600 dark:text-stone-400" />
-            <h3 className="font-bold">Export Backup</h3>
+          <Card className="space-y-4">
+            <div className="flex items-center gap-3 text-slate-800 dark:text-white mb-2">
+              <FileDown className="text-slate-600 dark:text-stone-400" />
+              <h3 className="font-bold">Export Backup</h3>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-stone-300">Download your data as a JSON file to back up or transfer to another device.</p>
+            <button 
+              onClick={handleExportFile} 
+              className="w-full bg-blue-600 dark:bg-orange-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 dark:hover:bg-orange-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            >
+              <Download size={18} />
+              Download Backup File
+            </button>
+          </Card>
+
+          <Card className="space-y-4">
+            <div className="flex items-center gap-3 text-slate-800 dark:text-white mb-2">
+              <FileUp className="text-slate-600 dark:text-stone-400" />
+              <h3 className="font-bold">Import Backup</h3>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-stone-300">Select a backup file to restore your data. This will replace all current data.</p>
+            
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,application/json"
+              onChange={handleImportFile}
+              className="hidden"
+              id="backup-file-input"
+            />
+            <label 
+              htmlFor="backup-file-input"
+              className="w-full bg-blue-100 dark:bg-stone-800 text-blue-800 dark:text-orange-100 py-3 rounded-lg font-bold hover:bg-blue-200 dark:hover:bg-stone-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Upload size={18} />
+              Select Backup File
+            </label>
+            {error && <p className="text-red-500 text-sm font-bold">{error}</p>}
+          </Card>
+
+          <div className="text-center text-xs text-slate-400 dark:text-stone-600 pt-8">
+            <p>Yoga Fee Tracker v1.4</p>
+            <p>IndexedDB Storage</p>
           </div>
-          <p className="text-sm text-slate-600 dark:text-stone-300">Save your current data to a file or copy it to transfer to another device.</p>
-          <button onClick={handleCopy} className="w-full bg-blue-100 dark:bg-stone-800 text-blue-800 dark:text-orange-100 py-3 rounded-lg font-bold hover:bg-blue-200 dark:hover:bg-stone-700">
-            Copy to Clipboard
-          </button>
-        </Card>
-
-        <Card className="space-y-4">
-          <div className="flex items-center gap-3 text-slate-800 dark:text-white mb-2">
-            <Upload className="text-slate-600 dark:text-stone-400" />
-            <h3 className="font-bold">Import Backup</h3>
-          </div>
-          <p className="text-sm text-slate-600 dark:text-stone-300">Paste your backup JSON here to restore data.</p>
-          <textarea 
-            className="w-full h-32 p-3 text-xs font-mono bg-blue-100 dark:bg-stone-800 rounded-lg border border-blue-200 dark:border-stone-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-orange-500 text-slate-900 dark:text-stone-100"
-            placeholder='Paste JSON data here...'
-            value={jsonInput}
-            onChange={(e) => { setJsonInput(e.target.value); setError(''); }}
-          ></textarea>
-          {error && <p className="text-red-500 text-sm font-bold">{error}</p>}
-          <button onClick={handleImport} className="w-full bg-blue-800 dark:bg-orange-600 text-white py-3 rounded-lg font-bold hover:bg-blue-900">
-            Restore Data
-          </button>
-        </Card>
-
-        <div className="text-center text-xs text-slate-400 dark:text-stone-600 pt-8 pb-8">
-          <p>Yoga Fee Tracker v1.3</p>
-          <p>Local Storage Mode</p>
         </div>
       </div>
     </motion.div>
@@ -748,11 +771,14 @@ const App: React.FC = () => {
 
   // Load Data on Mount
   useEffect(() => {
-    const loadedData = loadData();
-    const loadedTheme = loadTheme();
-    setData(loadedData);
-    setTheme(loadedTheme);
-    setLoaded(true);
+    const initApp = async () => {
+      const loadedData = await loadData();
+      const loadedTheme = loadTheme();
+      setData(loadedData);
+      setTheme(loadedTheme);
+      setLoaded(true);
+    };
+    initApp();
   }, []);
 
   // Sync Theme to Document
@@ -768,7 +794,7 @@ const App: React.FC = () => {
   // Save Data on Change
   useEffect(() => {
     if (loaded) {
-      saveData(data);
+      saveData(data).catch(console.error);
     }
   }, [data, loaded]);
 

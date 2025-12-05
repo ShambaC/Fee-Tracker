@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+/* Force dark mode to use the "selector" strategy 
+  (looking for the .dark class) instead of system preference 
+*/
+@variant dark (&:where(.dark, .dark *));
+
+/* If you had custom colors in your tailwind.config script, 
+  you can define them here in v4. 
+  But standard colors (blue, orange, stone) work out of the box.
+*/
+@theme {
+  /* Example of how to extend theme in v4 if needed: */
+  /* --color-brand: #3b82f6; */
+}

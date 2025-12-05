@@ -9,12 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^7.4.4",
+    "@capacitor/core": "^7.4.4",
+    "@tailwindcss/vite": "^4.1.17",
+    "framer-motion": "^12.23.25",
     "lucide-react": "^0.555.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
-    "framer-motion": "^12.23.25"
+    "tailwindcss": "^4.1.17"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.4.4",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",

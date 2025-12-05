@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import './index.css';
 import { 
   ChevronRight, 
@@ -981,17 +981,13 @@ const App: React.FC = () => {
     }
   }, [data, loaded]);
 
-  const navigateTo = (view: ViewState['current'], params: Partial<ViewState> = {}) => {
-    setViewState(prev => ({
-      ...prev,
-      current: view,
-      history: [...prev.history, prev.current],
-      ...params
-    }));
-  };
-
-  const goBack = () => {
+  // goBack function using useCallback so it can be used in useEffect
+  const goBack = useCallback(() => {
     setViewState(prev => {
+      // If already at dashboard, don't do anything
+      if (prev.current === 'dashboard' && prev.history.length === 0) {
+        return prev;
+      }
       const newHistory = [...prev.history];
       const lastView = newHistory.pop() || 'dashboard';
       return {
@@ -1000,6 +996,40 @@ const App: React.FC = () => {
         history: newHistory
       };
     });
+  }, []);
+
+  // Handle browser/OS back button
+  useEffect(() => {
+    // Push initial state when app loads
+    if (loaded && window.history.state === null) {
+      window.history.replaceState({ view: 'dashboard' }, '');
+    }
+  }, [loaded]);
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      // Prevent default browser back behavior by going back in our app navigation
+      if (viewState.current !== 'dashboard') {
+        // Push a new state to prevent actually leaving the page
+        window.history.pushState({ view: viewState.current }, '');
+        goBack();
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [viewState.current, goBack]);
+
+  const navigateTo = (view: ViewState['current'], params: Partial<ViewState> = {}) => {
+    // Push state to browser history for back button support
+    window.history.pushState({ view }, '');
+    
+    setViewState(prev => ({
+      ...prev,
+      current: view,
+      history: [...prev.history, prev.current],
+      ...params
+    }));
   };
 
   // Actions

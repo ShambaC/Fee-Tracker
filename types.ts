@@ -1,6 +1,7 @@
 export interface Location {
   id: string;
   name: string;
+  color?: string; // Hex color for location card styling
 }
 
 export interface Student {

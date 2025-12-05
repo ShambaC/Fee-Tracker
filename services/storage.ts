@@ -1,11 +1,8 @@
+import { Preferences } from '@capacitor/preferences';
 import { AppData } from '../types';
 
-const DB_NAME = 'yoga_tracker_db';
-const DB_VERSION = 1;
-const STORE_NAME = 'app_data';
-const DATA_KEY = 'main_data';
-const THEME_KEY = 'theme';
-const PERSISTENCE_KEY = 'yoga_tracker_persistence_requested';
+const DATA_KEY = 'yoga_tracker_data';
+const THEME_KEY = 'yoga_tracker_theme';
 
 const SEED_DATA: AppData = {
   locations: [
@@ -28,133 +25,20 @@ const SEED_DATA: AppData = {
   ]
 };
 
-// --- Persistent Storage API ---
+// --- Migration from old storage methods ---
 
-// Check if persistent storage is already granted
-export const checkPersistentStorage = async (): Promise<boolean> => {
-  if (navigator.storage && navigator.storage.persisted) {
-    return await navigator.storage.persisted();
-  }
-  return false;
-};
-
-// Request persistent storage permission from the browser
-export const requestPersistentStorage = async (): Promise<boolean> => {
-  if (navigator.storage && navigator.storage.persist) {
-    const isPersisted = await navigator.storage.persist();
-    if (isPersisted) {
-      console.log('Storage is now persistent!');
-      localStorage.setItem(PERSISTENCE_KEY, 'granted');
-    } else {
-      console.log('Persistent storage request was denied.');
-    }
-    return isPersisted;
-  }
-  console.log('Persistent Storage API not supported');
-  return false;
-};
-
-// Check if we've already asked for persistence (to avoid repeated prompts)
-export const hasPersistenceBeenRequested = (): boolean => {
-  return localStorage.getItem(PERSISTENCE_KEY) !== null;
-};
-
-// Get storage estimate (useful for debugging/display)
-export const getStorageEstimate = async (): Promise<{ usage: number; quota: number } | null> => {
-  if (navigator.storage && navigator.storage.estimate) {
-    const estimate = await navigator.storage.estimate();
-    return {
-      usage: estimate.usage || 0,
-      quota: estimate.quota || 0
-    };
-  }
-  return null;
-};
-
-// Initialize IndexedDB
-const initDB = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onerror = () => {
-      console.error('Failed to open IndexedDB:', request.error);
-      reject(request.error);
-    };
-
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      
-      // Create object store if it doesn't exist
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
-      }
-    };
-  });
-};
-
-// Get data from IndexedDB
-const getFromDB = async <T>(key: string): Promise<T | null> => {
-  try {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(key);
-
-      request.onerror = () => {
-        console.error('Failed to get from IndexedDB:', request.error);
-        reject(request.error);
-      };
-
-      request.onsuccess = () => {
-        resolve(request.result ?? null);
-      };
-    });
-  } catch (e) {
-    console.error('IndexedDB get error:', e);
-    return null;
-  }
-};
-
-// Save data to IndexedDB
-const saveToDB = async <T>(key: string, value: T): Promise<void> => {
-  try {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put(value, key);
-
-      request.onerror = () => {
-        console.error('Failed to save to IndexedDB:', request.error);
-        reject(request.error);
-      };
-
-      request.onsuccess = () => {
-        resolve();
-      };
-    });
-  } catch (e) {
-    console.error('IndexedDB save error:', e);
-  }
-};
-
-// Migrate data from localStorage to IndexedDB (one-time migration)
+// Migrate from localStorage (old v2 key)
 const migrateFromLocalStorage = async (): Promise<AppData | null> => {
   try {
     const oldKey = 'yoga_tracker_data_v2';
     const saved = localStorage.getItem(oldKey);
     if (saved) {
       const data = JSON.parse(saved) as AppData;
-      // Save to IndexedDB
-      await saveToDB(DATA_KEY, data);
+      // Save to Capacitor Preferences
+      await saveData(data);
       // Clear old localStorage data
       localStorage.removeItem(oldKey);
-      console.log('Successfully migrated data from localStorage to IndexedDB');
+      console.log('Successfully migrated data from localStorage to Capacitor Preferences');
       return data;
     }
   } catch (e) {
@@ -163,20 +47,90 @@ const migrateFromLocalStorage = async (): Promise<AppData | null> => {
   return null;
 };
 
-// Public API - Load data
+// Migrate from IndexedDB (previous implementation)
+const migrateFromIndexedDB = async (): Promise<AppData | null> => {
+  try {
+    const DB_NAME = 'yoga_tracker_db';
+    const STORE_NAME = 'app_data';
+    const IDB_DATA_KEY = 'main_data';
+
+    return new Promise((resolve) => {
+      const request = indexedDB.open(DB_NAME, 1);
+
+      request.onerror = () => {
+        resolve(null);
+      };
+
+      request.onsuccess = () => {
+        try {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.close();
+            resolve(null);
+            return;
+          }
+
+          const transaction = db.transaction(STORE_NAME, 'readonly');
+          const store = transaction.objectStore(STORE_NAME);
+          const getRequest = store.get(IDB_DATA_KEY);
+
+          getRequest.onsuccess = async () => {
+            const data = getRequest.result as AppData | undefined;
+            db.close();
+
+            if (data) {
+              // Save to Capacitor Preferences
+              await saveData(data);
+              // Delete the IndexedDB database
+              indexedDB.deleteDatabase(DB_NAME);
+              console.log('Successfully migrated data from IndexedDB to Capacitor Preferences');
+              resolve(data);
+            } else {
+              resolve(null);
+            }
+          };
+
+          getRequest.onerror = () => {
+            db.close();
+            resolve(null);
+          };
+        } catch (e) {
+          resolve(null);
+        }
+      };
+
+      request.onupgradeneeded = () => {
+        // Database doesn't exist or is empty
+        request.transaction?.abort();
+      };
+    });
+  } catch (e) {
+    console.error('Migration from IndexedDB failed:', e);
+    return null;
+  }
+};
+
+// --- Public API ---
+
+// Load data from Capacitor Preferences
 export const loadData = async (): Promise<AppData> => {
   try {
-    // First try IndexedDB
-    let data = await getFromDB<AppData>(DATA_KEY);
+    const { value } = await Preferences.get({ key: DATA_KEY });
     
-    if (data) {
-      return data;
+    if (value) {
+      return JSON.parse(value) as AppData;
     }
 
-    // Try to migrate from localStorage
-    data = await migrateFromLocalStorage();
-    if (data) {
-      return data;
+    // Try to migrate from IndexedDB (previous implementation)
+    const indexedDBData = await migrateFromIndexedDB();
+    if (indexedDBData) {
+      return indexedDBData;
+    }
+
+    // Try to migrate from localStorage (even older implementation)
+    const localStorageData = await migrateFromLocalStorage();
+    if (localStorageData) {
+      return localStorageData;
     }
 
     // Return seed data for new users
@@ -187,24 +141,41 @@ export const loadData = async (): Promise<AppData> => {
   }
 };
 
-// Public API - Save data
+// Save data to Capacitor Preferences
 export const saveData = async (data: AppData): Promise<void> => {
-  await saveToDB(DATA_KEY, data);
+  try {
+    await Preferences.set({
+      key: DATA_KEY,
+      value: JSON.stringify(data)
+    });
+  } catch (e) {
+    console.error('Failed to save data:', e);
+  }
 };
 
-// Theme functions (still use localStorage for simplicity - theme is not critical data)
-export const loadTheme = (): 'light' | 'dark' => {
+// Load theme preference
+export const loadTheme = async (): Promise<'light' | 'dark'> => {
   try {
-    const saved = localStorage.getItem(THEME_KEY);
-    if (saved === 'dark' || saved === 'light') return saved;
-  } catch (e) {}
+    const { value } = await Preferences.get({ key: THEME_KEY });
+    if (value === 'dark' || value === 'light') {
+      return value;
+    }
+  } catch (e) {
+    console.error('Failed to load theme:', e);
+  }
   return 'light';
 };
 
-export const saveTheme = (theme: 'light' | 'dark'): void => {
+// Save theme preference
+export const saveTheme = async (theme: 'light' | 'dark'): Promise<void> => {
   try {
-    localStorage.setItem(THEME_KEY, theme);
-  } catch (e) {}
+    await Preferences.set({
+      key: THEME_KEY,
+      value: theme
+    });
+  } catch (e) {
+    console.error('Failed to save theme:', e);
+  }
 };
 
 // Export data to JSON string (for file export)

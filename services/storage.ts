@@ -1,4 +1,6 @@
 import { Preferences } from '@capacitor/preferences';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
 import { AppData } from '../types';
 
 const DATA_KEY = 'yoga_tracker_data';
@@ -197,26 +199,70 @@ export const importData = (jsonString: string): AppData | null => {
   }
 };
 
-// File-based export - downloads a JSON file
-export const exportToFile = (data: AppData): void => {
-  const jsonString = exportData(data);
-  const blob = new Blob([jsonString], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  
+// Generate backup filename with date
+const getBackupFilename = (): string => {
   const date = new Date();
   const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  const filename = `yoga-fee-tracker-backup-${dateStr}.json`;
-  
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  return `yoga-fee-tracker-backup-${dateStr}.json`;
 };
 
-// File-based import - reads a JSON file
+// Check if running on native platform
+const isNativePlatform = (): boolean => {
+  return Capacitor.isNativePlatform();
+};
+
+// File-based export using Capacitor Filesystem (native) or download (web)
+export const exportToFile = async (data: AppData): Promise<{ success: boolean; path?: string; error?: string }> => {
+  const jsonString = exportData(data);
+  const filename = getBackupFilename();
+
+  if (isNativePlatform()) {
+    try {
+      // On native, save to Documents directory
+      const result = await Filesystem.writeFile({
+        path: filename,
+        data: jsonString,
+        directory: Directory.Documents,
+        encoding: Encoding.UTF8
+      });
+
+      return { 
+        success: true, 
+        path: result.uri 
+      };
+    } catch (e) {
+      console.error('Failed to export file:', e);
+      return { 
+        success: false, 
+        error: e instanceof Error ? e.message : 'Failed to save file' 
+      };
+    }
+  } else {
+    // On web, use download method
+    try {
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      return { success: true, path: filename };
+    } catch (e) {
+      console.error('Failed to download file:', e);
+      return { 
+        success: false, 
+        error: e instanceof Error ? e.message : 'Failed to download file' 
+      };
+    }
+  }
+};
+
+// File-based import using file picker (works on both web and native via input element)
 export const importFromFile = (file: File): Promise<AppData | null> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -239,4 +285,68 @@ export const importFromFile = (file: File): Promise<AppData | null> => {
     
     reader.readAsText(file);
   });
+};
+
+// Read backup file from filesystem (native only)
+export const readBackupFromPath = async (path: string): Promise<AppData | null> => {
+  if (!isNativePlatform()) {
+    return null;
+  }
+
+  try {
+    const result = await Filesystem.readFile({
+      path: path,
+      directory: Directory.Documents,
+      encoding: Encoding.UTF8
+    });
+
+    if (typeof result.data === 'string') {
+      return importData(result.data);
+    }
+    return null;
+  } catch (e) {
+    console.error('Failed to read backup file:', e);
+    return null;
+  }
+};
+
+// List available backup files (native only)
+export const listBackupFiles = async (): Promise<string[]> => {
+  if (!isNativePlatform()) {
+    return [];
+  }
+
+  try {
+    const result = await Filesystem.readdir({
+      path: '',
+      directory: Directory.Documents
+    });
+
+    return result.files
+      .filter(file => file.name.startsWith('yoga-fee-tracker-backup-') && file.name.endsWith('.json'))
+      .map(file => file.name)
+      .sort()
+      .reverse(); // Most recent first
+  } catch (e) {
+    console.error('Failed to list backup files:', e);
+    return [];
+  }
+};
+
+// Delete a backup file (native only)
+export const deleteBackupFile = async (filename: string): Promise<boolean> => {
+  if (!isNativePlatform()) {
+    return false;
+  }
+
+  try {
+    await Filesystem.deleteFile({
+      path: filename,
+      directory: Directory.Documents
+    });
+    return true;
+  } catch (e) {
+    console.error('Failed to delete backup file:', e);
+    return false;
+  }
 };

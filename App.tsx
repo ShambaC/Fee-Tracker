@@ -645,9 +645,17 @@ const SettingsView: React.FC<{
     }
   }, [isExiting, onExitComplete]);
 
-  const handleExportFile = () => {
-    exportToFile(data);
-    onShowToast('Backup file downloaded!', 'success');
+  const handleExportFile = async () => {
+    const result = await exportToFile(data);
+    if (result.success) {
+      if (result.path) {
+        onShowToast(`Backup saved to ${result.path}`, 'success');
+      } else {
+        onShowToast('Backup file downloaded!', 'success');
+      }
+    } else {
+      onShowToast(result.error || 'Failed to export backup', 'error');
+    }
   };
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {

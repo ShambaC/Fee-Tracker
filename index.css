@@ -154,3 +154,18 @@
     opacity: 1;
   }
 }
+
+/* Hide scrollbar for Chrome, Safari, and Edge */
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Hide scrollbar for Firefox */
+.hide-scrollbar {
+    scrollbar-width: none;
+}
+
+/* Hide scrollbar for IE/old Edge */
+.hide-scrollbar {
+    -ms-overflow-style: none;
+}

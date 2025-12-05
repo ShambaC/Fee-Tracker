@@ -331,7 +331,7 @@ const StudentList: React.FC<{
           />
         </div>
 
-        <div className="space-y-3 overflow-y-auto max-h-[60vh]">
+        <div className="space-y-3 overflow-y-scroll hide-scrollbar max-h-[60vh]">
           {filteredStudents.length === 0 ? (
             <div className="text-center py-10 text-slate-400 dark:text-stone-500">
               <p>No students found.</p>
@@ -682,7 +682,7 @@ const SettingsView: React.FC<{
       className={`fixed inset-0 bg-blue-50 dark:bg-stone-950 z-30 flex flex-col ${isExiting ? 'animate-slide-out-down' : 'animate-slide-in-up'}`}
     >
       <Header title="Settings" onBack={onBack} />
-      <div className="flex-1 overflow-y-auto overscroll-contain">
+      <div className="flex-1 overflow-y-scroll hide-scrollbar overscroll-contain">
         <div className="p-4 space-y-6 pb-12">
           
           <Card className="flex items-center justify-between">

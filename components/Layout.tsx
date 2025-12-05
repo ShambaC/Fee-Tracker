@@ -59,7 +59,7 @@ export const Card: React.FC<{ children: React.ReactNode; className?: string; onC
   return (
     <div 
       onClick={onClick}
-      className={`bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-2xl shadow-sm border border-blue-100 dark:border-orange-900/30 p-5 ${onClick ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''} ${className}`}
+      className={`bg-white dark:bg-stone-900 rounded-2xl shadow-sm border border-blue-100 dark:border-orange-900/30 p-5 ${onClick ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''} ${className}`}
     >
       {children}
     </div>

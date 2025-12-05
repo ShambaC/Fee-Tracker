@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import './index.css';
 import { 
   ChevronRight, 
@@ -25,7 +25,6 @@ import {
   ShieldCheck,
   HardDrive
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 
 import { AppData, Location, Student, Payment, ViewState } from './types';
 import { 
@@ -73,22 +72,14 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-        onClick={onCancel}
+    <div
+      className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 animate-fade-in"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden animate-scale-in"
+        onClick={(e) => e.stopPropagation()}
       >
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
           <div className="p-6">
             <div className="flex items-center gap-4 mb-4">
               <div className={`p-3 rounded-full ${
@@ -123,9 +114,8 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
               </button>
             </div>
           </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+        </div>
+      </div>
   );
 };
 
@@ -160,25 +150,18 @@ const Toast: React.FC<ToastProps> = ({ isOpen, message, type = 'success', onClos
   };
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: -50, scale: 0.9 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -50, scale: 0.9 }}
-        className="fixed top-4 left-4 right-4 z-[100] flex justify-center"
-      >
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg ${bgMap[type]}`}>
-          {iconMap[type]}
-          <span className="text-sm font-medium text-slate-800 dark:text-white">{message}</span>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition-colors"
-          >
-            <X size={16} className="text-slate-500 dark:text-stone-400" />
-          </button>
-        </div>
-      </motion.div>
-    </AnimatePresence>
+    <div className="fixed top-4 left-4 right-4 z-100 flex justify-center animate-slide-down">
+      <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg ${bgMap[type]}`}>
+        {iconMap[type]}
+        <span className="text-sm font-medium text-slate-800 dark:text-white">{message}</span>
+        <button
+          onClick={onClose}
+          className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition-colors"
+        >
+          <X size={16} className="text-slate-500 dark:text-stone-400" />
+        </button>
+      </div>
+    </div>
   );
 };
 
@@ -200,7 +183,8 @@ const Dashboard: React.FC<{
   onLocationSelect: (id: string) => void;
   onSettings: () => void;
   onAddLocation: () => void;
-}> = ({ data, month, year, onMonthChange, onLocationSelect, onSettings, onAddLocation }) => {
+  isVisible: boolean;
+}> = ({ data, month, year, onMonthChange, onLocationSelect, onSettings, onAddLocation, isVisible }) => {
   
   const stats = useMemo(() => {
     let totalCollected = 0;
@@ -224,12 +208,7 @@ const Dashboard: React.FC<{
   }, [data, month, year]);
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }} 
-      animate={{ opacity: 1 }} 
-      exit={{ opacity: 0 }}
-      className="min-h-screen pb-24"
-    >
+    <div className={`min-h-screen pb-24 ${isVisible ? 'animate-fade-in' : ''}`}>
       <Header 
         title="Yoga Fee Tracker" 
         onSettings={onSettings}
@@ -259,7 +238,7 @@ const Dashboard: React.FC<{
       {/* Location List */}
       <div className="px-4 mt-6 relative z-20 space-y-4">
         <div className="flex justify-between items-end px-2 mb-2 h-8">
-           <h3 className="font-bold text-slate-800 dark:text-orange-50 text-lg shadow-sm bg-blue-100/80 dark:bg-stone-800/80 backdrop-blur-md px-3 py-1 rounded-lg">Locations</h3>
+           <h3 className="font-bold text-slate-800 dark:text-orange-50 text-lg shadow-sm bg-blue-100 dark:bg-stone-800 px-3 py-1 rounded-lg">Locations</h3>
         </div>
         
         {stats.locStats.map(loc => (
@@ -282,7 +261,7 @@ const Dashboard: React.FC<{
       </div>
       
       <Fab onClick={onAddLocation} label="Add Location" />
-    </motion.div>
+    </div>
   );
 };
 
@@ -297,8 +276,19 @@ const StudentList: React.FC<{
   onSelectStudent: (id: string) => void;
   onAddStudent: () => void;
   onDeleteLocation: () => void;
-}> = ({ location, students, payments, month, year, onBack, onSelectStudent, onAddStudent, onDeleteLocation }) => {
+  onExitComplete?: () => void;
+  isExiting?: boolean;
+}> = ({ location, students, payments, month, year, onBack, onSelectStudent, onAddStudent, onDeleteLocation, onExitComplete, isExiting }) => {
   const [search, setSearch] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isExiting && containerRef.current) {
+      const handleAnimationEnd = () => onExitComplete?.();
+      containerRef.current.addEventListener('animationend', handleAnimationEnd, { once: true });
+      return () => containerRef.current?.removeEventListener('animationend', handleAnimationEnd);
+    }
+  }, [isExiting, onExitComplete]);
 
   const filteredStudents = students.filter(s => 
     s.name.toLowerCase().includes(search.toLowerCase())
@@ -309,12 +299,9 @@ const StudentList: React.FC<{
   };
 
   return (
-    <motion.div 
-      initial={{ x: '100%' }} 
-      animate={{ x: 0 }} 
-      exit={{ x: '100%' }}
-      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="min-h-screen bg-transparent absolute top-0 w-full z-10"
+    <div 
+      ref={containerRef}
+      className={`min-h-screen bg-blue-50 dark:bg-stone-950 absolute top-0 w-full z-10 ${isExiting ? 'animate-slide-out-right' : 'animate-slide-in-right'}`}
     >
       <Header 
         title={location.name} 
@@ -344,7 +331,7 @@ const StudentList: React.FC<{
           />
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3 overflow-y-auto max-h-[60vh]">
           {filteredStudents.length === 0 ? (
             <div className="text-center py-10 text-slate-400 dark:text-stone-500">
               <p>No students found.</p>
@@ -378,7 +365,7 @@ const StudentList: React.FC<{
       </div>
       
       <Fab onClick={onAddStudent} label="Add Student" />
-    </motion.div>
+    </div>
   );
 };
 
@@ -395,11 +382,22 @@ const StudentDetail: React.FC<{
   onUndo: (paymentId: string) => void;
   onUpdateDefaultFee: (newFee: number) => void;
   onDeleteStudent: () => void;
-}> = ({ student, locationName, currentPayment, allPayments, month, year, onBack, onPayment, onUndo, onUpdateDefaultFee, onDeleteStudent }) => {
+  onExitComplete?: () => void;
+  isExiting?: boolean;
+}> = ({ student, locationName, currentPayment, allPayments, month, year, onBack, onPayment, onUndo, onUpdateDefaultFee, onDeleteStudent, onExitComplete, isExiting }) => {
   
   const [showSuccess, setShowSuccess] = useState(false);
   const [feeAmount, setFeeAmount] = useState<string>(student.defaultFee?.toString() || '150');
   const [isEditingFee, setIsEditingFee] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isExiting && containerRef.current) {
+      const handleAnimationEnd = () => onExitComplete?.();
+      containerRef.current.addEventListener('animationend', handleAnimationEnd, { once: true });
+      return () => containerRef.current?.removeEventListener('animationend', handleAnimationEnd);
+    }
+  }, [isExiting, onExitComplete]);
 
   // Trigger confetti logic wrapper
   const handlePayment = () => {
@@ -436,12 +434,9 @@ const StudentDetail: React.FC<{
   }, [allPayments, month, year, student.id]);
 
   return (
-    <motion.div 
-      initial={{ x: '100%' }} 
-      animate={{ x: 0 }} 
-      exit={{ x: '100%' }}
-      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="min-h-screen bg-transparent absolute top-0 w-full z-20"
+    <div 
+      ref={containerRef}
+      className={`min-h-screen bg-blue-50 dark:bg-stone-950 absolute top-0 w-full z-20 ${isExiting ? 'animate-slide-out-right' : 'animate-slide-in-right'}`}
     >
       <Header 
         title="Payment" 
@@ -476,13 +471,9 @@ const StudentDetail: React.FC<{
             
             {currentPayment ? (
               <div className="py-6">
-                 <motion.div 
-                   initial={{ scale: 0.8, opacity: 0 }}
-                   animate={{ scale: 1, opacity: 1 }}
-                   className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mx-auto mb-4"
-                 >
+                 <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center mx-auto mb-4 animate-scale-in">
                    <Check size={40} className="text-emerald-600 dark:text-emerald-400" />
-                 </motion.div>
+                 </div>
                  <h2 className="text-3xl font-bold text-slate-800 dark:text-orange-50 mb-1">Paid ₹{currentPayment.amount}</h2>
                  <p className="text-sm text-slate-500 dark:text-stone-400">
                    on {new Date(currentPayment.datePaid).toLocaleDateString()}
@@ -532,7 +523,7 @@ const StudentDetail: React.FC<{
         <h3 className="font-bold text-slate-800 dark:text-orange-100 mb-3 ml-1">Recent History</h3>
         <div className="space-y-3">
           {history.map((h, idx) => (
-             <div key={idx} className="bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg p-4 flex items-center justify-between border border-blue-50 dark:border-stone-800">
+             <div key={idx} className="bg-white dark:bg-stone-900 rounded-lg p-4 flex items-center justify-between border border-blue-50 dark:border-stone-800">
                <div className="flex items-center gap-3">
                  {h.payment ? <Check size={18} className="text-emerald-500"/> : <Clock size={18} className="text-orange-400"/>}
                  <span className="font-medium text-slate-700 dark:text-stone-300">{h.monthName}</span>
@@ -546,38 +537,27 @@ const StudentDetail: React.FC<{
       </div>
 
       {/* Success Overlay */}
-      <AnimatePresence>
-        {showSuccess && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }}
-            onClick={() => setShowSuccess(false)}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm cursor-pointer"
+      {showSuccess && (
+        <div 
+          onClick={() => setShowSuccess(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 cursor-pointer animate-fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-stone-800 rounded-3xl p-8 text-center m-8 max-w-sm shadow-2xl cursor-default animate-scale-in"
           >
-            <motion.div 
-              initial={{ scale: 0.5, y: 50 }}
-              animate={{ scale: 1, y: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-stone-800 rounded-3xl p-8 text-center m-8 max-w-sm shadow-2xl cursor-default"
-            >
-              <motion.div 
-                animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }}
-                transition={{ duration: 0.5, repeat: 1 }}
-                className="w-24 h-24 bg-emerald-100 dark:bg-emerald-900 rounded-full flex items-center justify-center mx-auto mb-6"
-              >
-                <Check size={48} className="text-emerald-600 dark:text-emerald-400" strokeWidth={4} />
-              </motion.div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Payment Received!</h2>
-              <p className="text-slate-600 dark:text-stone-300">
-                {student.name} is all set for {MONTHS[month]}.
-              </p>
-              <p className="text-xs text-slate-400 mt-4">(Tap anywhere to dismiss)</p>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+            <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-900 rounded-full flex items-center justify-center mx-auto mb-6 animate-success-bounce">
+              <Check size={48} className="text-emerald-600 dark:text-emerald-400" strokeWidth={4} />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Payment Received!</h2>
+            <p className="text-slate-600 dark:text-stone-300">
+              {student.name} is all set for {MONTHS[month]}.
+            </p>
+            <p className="text-xs text-slate-400 mt-4">(Tap anywhere to dismiss)</p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -590,16 +570,25 @@ const AddForm: React.FC<{
   field2Label?: string;
   field2Default?: string;
   field2Type?: 'text' | 'number';
-}> = ({ title, onSave, onBack, field1Label, field2Label, field2Default = '', field2Type = 'text' }) => {
+  onExitComplete?: () => void;
+  isExiting?: boolean;
+}> = ({ title, onSave, onBack, field1Label, field2Label, field2Default = '', field2Type = 'text', onExitComplete, isExiting }) => {
   const [val1, setVal1] = useState('');
   const [val2, setVal2] = useState(field2Default);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isExiting && containerRef.current) {
+      const handleAnimationEnd = () => onExitComplete?.();
+      containerRef.current.addEventListener('animationend', handleAnimationEnd, { once: true });
+      return () => containerRef.current?.removeEventListener('animationend', handleAnimationEnd);
+    }
+  }, [isExiting, onExitComplete]);
 
   return (
-    <motion.div 
-      initial={{ y: '100%' }} 
-      animate={{ y: 0 }} 
-      exit={{ y: '100%' }}
-      className="min-h-screen bg-transparent absolute top-0 w-full z-40 bg-blue-50 dark:bg-stone-950"
+    <div 
+      ref={containerRef}
+      className={`min-h-screen absolute top-0 w-full z-40 bg-blue-50 dark:bg-stone-950 ${isExiting ? 'animate-slide-out-down' : 'animate-slide-in-up'}`}
     >
       <Header title={title} onBack={onBack} />
       <div className="p-4 space-y-6">
@@ -634,7 +623,7 @@ const AddForm: React.FC<{
           Save
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
@@ -648,9 +637,20 @@ const SettingsView: React.FC<{
   onShowToast: (message: string, type?: 'success' | 'error' | 'info') => void;
   isPersistent: boolean;
   onRequestPersistence: () => void;
-}> = ({ data, onImport, onBack, theme, onToggleTheme, onShowToast, isPersistent, onRequestPersistence }) => {
+  onExitComplete?: () => void;
+  isExiting?: boolean;
+}> = ({ data, onImport, onBack, theme, onToggleTheme, onShowToast, isPersistent, onRequestPersistence, onExitComplete, isExiting }) => {
   const [error, setError] = useState('');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isExiting && containerRef.current) {
+      const handleAnimationEnd = () => onExitComplete?.();
+      containerRef.current.addEventListener('animationend', handleAnimationEnd, { once: true });
+      return () => containerRef.current?.removeEventListener('animationend', handleAnimationEnd);
+    }
+  }, [isExiting, onExitComplete]);
 
   const handleExportFile = () => {
     exportToFile(data);
@@ -677,11 +677,9 @@ const SettingsView: React.FC<{
   };
 
   return (
-    <motion.div 
-      initial={{ y: '100%' }} 
-      animate={{ y: 0 }} 
-      exit={{ y: '100%' }}
-      className="fixed inset-0 bg-blue-50 dark:bg-stone-950 z-30 flex flex-col"
+    <div 
+      ref={containerRef}
+      className={`fixed inset-0 bg-blue-50 dark:bg-stone-950 z-30 flex flex-col ${isExiting ? 'animate-slide-out-down' : 'animate-slide-in-up'}`}
     >
       <Header title="Settings" onBack={onBack} />
       <div className="flex-1 overflow-y-auto overscroll-contain">
@@ -789,7 +787,7 @@ const SettingsView: React.FC<{
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
@@ -1028,104 +1026,101 @@ const App: React.FC = () => {
   if (!loaded) return null;
 
   return (
-    <div className="max-w-md mx-auto relative overflow-hidden bg-blue-50 dark:bg-stone-950 bg-noise shadow-2xl min-h-screen transition-colors duration-500 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-stone-950 dark:to-orange-950">
-      <AnimatePresence mode='wait'>
-        {viewState.current === 'dashboard' && (
-          <Dashboard 
-            key="dashboard"
-            data={data}
-            month={currentMonth}
-            year={currentYear}
-            onMonthChange={(m) => {
-              if (m === 0 && currentMonth === 11) setCurrentYear(y => y + 1);
-              if (m === 11 && currentMonth === 0) setCurrentYear(y => y - 1);
-              setCurrentMonth(m);
-            }}
-            onLocationSelect={(id) => navigateTo('location_list', { selectedLocationId: id })}
-            onSettings={() => navigateTo('settings')}
-            onAddLocation={() => navigateTo('add_location')}
-          />
-        )}
-      </AnimatePresence>
+    <div className="max-w-md mx-auto relative overflow-hidden bg-blue-50 dark:bg-stone-950 shadow-2xl min-h-screen transition-colors duration-500 bg-linear-to-br from-blue-50 to-indigo-100 dark:from-stone-950 dark:to-orange-950">
+      {viewState.current === 'dashboard' && (
+        <Dashboard 
+          key="dashboard"
+          data={data}
+          month={currentMonth}
+          year={currentYear}
+          onMonthChange={(m) => {
+            if (m === 0 && currentMonth === 11) setCurrentYear(y => y + 1);
+            if (m === 11 && currentMonth === 0) setCurrentYear(y => y - 1);
+            setCurrentMonth(m);
+          }}
+          onLocationSelect={(id) => navigateTo('location_list', { selectedLocationId: id })}
+          onSettings={() => navigateTo('settings')}
+          onAddLocation={() => navigateTo('add_location')}
+          isVisible={viewState.current === 'dashboard'}
+        />
+      )}
 
-      <AnimatePresence>
-        {viewState.current === 'location_list' && selectedLocation && (
-          <StudentList 
-            key="student_list"
-            location={selectedLocation}
-            students={locationStudents}
-            payments={data.payments}
-            month={currentMonth}
-            year={currentYear}
-            onBack={goBack}
-            onSelectStudent={(id) => navigateTo('student_detail', { selectedStudentId: id })}
-            onAddStudent={() => navigateTo('add_student')}
-            onDeleteLocation={handleDeleteLocation}
-          />
-        )}
+      {viewState.current === 'location_list' && selectedLocation && (
+        <StudentList 
+          key="student_list"
+          location={selectedLocation}
+          students={locationStudents}
+          payments={data.payments}
+          month={currentMonth}
+          year={currentYear}
+          onBack={goBack}
+          onSelectStudent={(id) => navigateTo('student_detail', { selectedStudentId: id })}
+          onAddStudent={() => navigateTo('add_student')}
+          onDeleteLocation={handleDeleteLocation}
+        />
+      )}
 
-        {viewState.current === 'student_detail' && selectedStudent && (
-          <StudentDetail 
-            key="student_detail"
-            student={selectedStudent}
-            locationName={data.locations.find(l => l.id === selectedStudent.locationId)?.name || ''}
-            currentPayment={selectedStudentPayment}
-            allPayments={data.payments}
-            month={currentMonth}
-            year={currentYear}
-            onBack={goBack}
-            onPayment={handlePayment}
-            onUndo={handleUndoPayment}
-            onUpdateDefaultFee={handleUpdateStudentFee}
-            onDeleteStudent={handleDeleteStudent}
-          />
-        )}
+      {viewState.current === 'student_detail' && selectedStudent && (
+        <StudentDetail 
+          key="student_detail"
+          student={selectedStudent}
+          locationName={data.locations.find(l => l.id === selectedStudent.locationId)?.name || ''}
+          currentPayment={selectedStudentPayment}
+          allPayments={data.payments}
+          month={currentMonth}
+          year={currentYear}
+          onBack={goBack}
+          onPayment={handlePayment}
+          onUndo={handleUndoPayment}
+          onUpdateDefaultFee={handleUpdateStudentFee}
+          onDeleteStudent={handleDeleteStudent}
+        />
+      )}
 
-        {viewState.current === 'add_location' && (
-          <AddForm 
-             key="add_location"
-             title="Add Location"
-             field1Label="Location Name"
-             onSave={(name) => handleAddLocation(name)}
-             onBack={goBack}
-          />
-        )}
+      {viewState.current === 'add_location' && (
+        <AddForm 
+           key="add_location"
+           title="Add Location"
+           field1Label="Location Name"
+           onSave={(name) => handleAddLocation(name)}
+           onBack={goBack}
+        />
+      )}
 
-        {viewState.current === 'add_student' && (
-          <AddForm 
-             key="add_student"
-             title="Add Student"
-             field1Label="Student Name"
-             field2Label="Default Fee (₹)"
-             field2Default="150"
-             field2Type="number"
-             onSave={(name, fee) => handleAddStudent(name, fee)}
-             onBack={goBack}
-          />
-        )}
+      {viewState.current === 'add_student' && (
+        <AddForm 
+           key="add_student"
+           title="Add Student"
+           field1Label="Student Name"
+           field2Label="Default Fee (₹)"
+           field2Default="150"
+           field2Type="number"
+           onSave={(name, fee) => handleAddStudent(name, fee)}
+           onBack={goBack}
+        />
+      )}
 
-        {viewState.current === 'settings' && (
-          <SettingsView 
-            key="settings"
-            data={data}
-            onImport={handleImport}
-            onBack={goBack}
-            theme={theme}
-            onToggleTheme={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
-            onShowToast={showToast}
-            isPersistent={isPersistent}
-            onRequestPersistence={async () => {
-              const granted = await requestPersistentStorage();
-              setIsPersistent(granted);
-              if (granted) {
-                showToast('Persistent storage enabled!', 'success');
-              } else {
-                showToast('Browser denied persistent storage request', 'error');
-              }
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {viewState.current === 'settings' && (
+        <SettingsView 
+          key="settings"
+          data={data}
+          onImport={handleImport}
+          onBack={goBack}
+          theme={theme}
+          onToggleTheme={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
+          onShowToast={showToast}
+          isPersistent={isPersistent}
+          onRequestPersistence={async () => {
+            const granted = await requestPersistentStorage();
+            setIsPersistent(granted);
+            if (granted) {
+              showToast('Persistent storage enabled!', 'success');
+            } else {
+              showToast('Browser denied persistent storage request', 'error');
+            }
+          }}
+        />
+      )}
 
       {/* Global Modals */}
       <ConfirmModal

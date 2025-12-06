@@ -59,7 +59,8 @@ Yoga Fee Tracker is a small, focused app for tracking monthly fees received from
 ---
 
 ## Screenshots 📸
-![Screenshot Gallery](screenshots/screenshotGallery.png)
+![Screenshot Gallery Dark](screenshots/ssGalleryDark.png)
+![Screenshot Gallery Light](screenshots/ssGalleryLight.png)
 
 ---
 

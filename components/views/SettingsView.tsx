@@ -117,10 +117,7 @@ const SettingsView: React.FC<{
           </Card>
 
           <div className="text-center text-xs text-slate-400 dark:text-stone-600 pt-8">
-            <p>Yoga Fee Tracker v1.6</p>
-            <p className="flex items-center justify-center gap-1">
-              <Smartphone size={12} /> Native Storage
-            </p>
+            <p>Yoga Fee Tracker v1.6.1</p>
             <p>Made with ❤️ by ShambaC</p>
           </div>
         </div>

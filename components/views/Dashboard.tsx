@@ -48,7 +48,7 @@ const Dashboard: React.FC<{
             <ChevronRight className="rotate-180" />
           </button>
           <div className="text-center">
-            <h2 className="text-2xl font-bold">{MONTHS[month]}</h2>
+            <h2 className="text-2xl font-bold w-28">{MONTHS[month]}</h2>
             <p className="opacity-80 font-medium">{year}</p>
           </div>
           <button onClick={() => onMonthChange(month === 11 ? 0 : month + 1)} className="p-2 rounded-full hover:bg-white/20">

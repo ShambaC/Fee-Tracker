@@ -8,9 +8,9 @@ const THEME_KEY = 'yoga_tracker_theme';
 
 const SEED_DATA: AppData = {
   locations: [
-    { id: 'loc1', name: 'Studio A' },
-    { id: 'loc2', name: 'Community Hall' },
-    { id: 'loc3', name: 'Park View' },
+    { id: 'loc1', name: 'Studio A', color: '#FF5733' },
+    { id: 'loc2', name: 'Community Hall', color: '#33C1FF' },
+    { id: 'loc3', name: 'Park View', color: '#33FF57' },
   ],
   students: [
     { id: 'stu1', name: 'Alice Smith', locationId: 'loc1', joinedDate: '2024-01-15', isActive: true, defaultFee: 150 },

@@ -169,3 +169,7 @@
 .hide-scrollbar {
     -ms-overflow-style: none;
 }
+
+header {
+  padding-top: 2rem;
+}

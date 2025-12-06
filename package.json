@@ -9,7 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor-community/safe-area": "^7.0.0-beta.6",
     "@capacitor/android": "^7.4.4",
+    "@capacitor/app": "^7.1.0",
     "@capacitor/core": "^7.4.4",
     "@capacitor/filesystem": "^7.1.5",
     "@capacitor/preferences": "^7.0.2",

@@ -35,6 +35,7 @@ import {
   saveTheme
 } from './services/storage';
 import { Header, Card, Fab } from './components/Layout';
+import { App as CapacitorApp } from '@capacitor/app';
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -949,6 +950,20 @@ const App: React.FC = () => {
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
+
+  useEffect(() => {
+    const backButtonListener = CapacitorApp.addListener('backButton', ({canGoBack}) => {
+      if(!canGoBack){
+        CapacitorApp.exitApp();
+      } else {
+        window.history.back();
+      }
+    });
+
+    return () => {
+      backButtonListener.then(handle => handle.remove());
+    };
+  }, []);
 
   // Load Data on Mount
   useEffect(() => {

@@ -70,7 +70,7 @@ export const Fab: React.FC<{ onClick: () => void; label?: string }> = ({ onClick
   return (
     <button
       onClick={onClick}
-      className="fixed bottom-6 right-6 h-14 w-14 bg-blue-700 dark:bg-orange-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-800 dark:hover:bg-orange-500 active:scale-90 transition-all z-40"
+      className="fixed bottom-12 right-6 h-14 w-14 bg-blue-700 dark:bg-orange-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-800 dark:hover:bg-orange-500 active:scale-90 transition-all z-40"
     >
       <Plus size={28} />
       {label && <span className="sr-only">{label}</span>}
